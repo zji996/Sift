@@ -1,3 +1,37 @@
+# Wails 构建输出
 build/bin
+build/windows
+build/darwin
+build/linux
+
+# 依赖目录
 node_modules
+frontend/node_modules
+
+# 构建和分发目录
 frontend/dist
+dist
+
+# IDE 和编辑器文件
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# 日志文件
+*.log
+
+# 环境变量文件
+.env
+.env.local
+
+# Go 相关
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
