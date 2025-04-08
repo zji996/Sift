@@ -1,0 +1,57 @@
+/* File: /Users/zeyuji/Projects/AI_Toolkit/Sift/frontend/src/App.css */
+
+/* Keep existing styles */
+#app {
+    height: 100vh;
+    /* text-align: center; - Removed or adjust as App.tsx now uses flexbox */
+}
+
+/* ... other existing styles ... */
+
+/* Add specific styles or overrides for App.tsx elements */
+button:disabled {
+    background-color: #555 !important; /* Ensure override */
+    color: #999 !important;
+    cursor: not-allowed;
+}
+
+button:hover:not(:disabled) {
+    opacity: 0.9; /* Simple hover effect */
+}
+
+/* Style the generate button specifically */
+#App .generateArea button { /* Be more specific if needed */
+    background-color: #50e3c2;
+    color: #1b2636; /* Darker text for better contrast */
+    font-weight: bold;
+}
+
+#App .generateArea button:hover:not(:disabled) {
+    background-color: #72f5d5; /* Lighter hover for generate */
+    opacity: 1; /* Reset opacity if set globally */
+}
+
+/* Style for the file tree list items if needed */
+/* ul { */
+    /* Styles defined inline in FileTree.tsx for simplicity */
+/* } */
+
+/* li { */
+    /* Styles defined inline in FileTree.tsx for simplicity */
+/* } */
+
+/* You might want to style the scrollbar for the file tree container */
+.file-tree-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.file-tree-container::-webkit-scrollbar-track {
+  background: #2a3a4a; /* Match container background */
+  border-radius: 4px;
+}
+
+.file-tree-container::-webkit-scrollbar-thumb {
+  background-color: #556a80; /* Scrollbar handle color */
+  border-radius: 4px;
+  border: 2px solid #2a3a4a; /* Creates padding around thumb */
+}
