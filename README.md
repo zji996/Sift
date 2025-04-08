@@ -67,13 +67,13 @@ It intelligently filters files based on your project's `.gitignore` rules, ignor
 
 To run Sift in live development mode:
 
-1.  Make sure you have Go, Node.js, and npm installed.
-2.  Install Wails CLI: `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
+1.  Make sure you have Go, Node.js, and pnpm installed.
+2.  Use Wails CLI with npx: `npx wails@latest`
 3.  Clone the repository.
 4.  Navigate to the `frontend` directory and install dependencies:
     ```bash
     cd frontend
-    npm install
+    pnpm install
     cd ..
     ```
 5.  Run the development server:
@@ -86,7 +86,7 @@ To run Sift in live development mode:
 
 To build a redistributable, production-ready package for your platform:
 
-1.  Ensure development dependencies are installed (`npm install` in `frontend`).
+1.  Ensure development dependencies are installed (`pnpm install` in `frontend`).
 2.  Run the build command from the project root:
     ```bash
     wails build
@@ -95,7 +95,7 @@ To build a redistributable, production-ready package for your platform:
 
 ## 📄 License
 
-This project utilizes the standard Wails React-TS template structure. Please refer to the Wails license and the licenses of its dependencies (like `go-gitignore`, React, etc.). If a specific license is chosen for Sift itself, it should be added here (e.g., MIT License).
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 👤 Author
 
@@ -119,7 +119,7 @@ This project utilizes the standard Wails React-TS template structure. Please ref
 *   **选择性包含:** 使用复选框选择您想要包含在上下文中的特定文件或整个目录。
     *   选中/取消选中目录会递归地应用于其子项。
     *   如果子项被选中，其父目录也会自动被选中。
-    *   “半选”状态的复选框表示目录中有部分子项被选中。
+    *   "半选"状态的复选框表示目录中有部分子项被选中。
     *   根节点复选框允许一键选中/取消选中所有*可见*的文件和文件夹。
 *   **上下文生成:** 创建一个格式化的输出字符串，包含：
     *   一个 `<file_map>` 部分，可视化项目根目录下*所有可见*（未被忽略）文件和文件夹的结构（遵循 `.gitignore` 规则）。
@@ -166,13 +166,13 @@ This project utilizes the standard Wails React-TS template structure. Please ref
 
 要在实时开发模式下运行 Sift：
 
-1.  确保您已安装 Go、Node.js 和 npm。
-2.  安装 Wails CLI：`go install github.com/wailsapp/wails/v2/cmd/wails@latest`
+1.  确保您已安装 Go、Node.js 和 pnpm。
+2.  使用 npx 运行 Wails CLI：`npx wails@latest`
 3.  克隆本仓库。
 4.  进入 `frontend` 目录并安装依赖：
     ```bash
     cd frontend
-    npm install
+    pnpm install
     cd ..
     ```
 5.  运行开发服务器：
@@ -185,7 +185,7 @@ This project utilizes the standard Wails React-TS template structure. Please ref
 
 要为您的平台构建可分发的、生产就绪的软件包：
 
-1.  确保已安装开发依赖项（在 `frontend` 目录中运行 `npm install`）。
+1.  确保已安装开发依赖项（在 `frontend` 目录中运行 `pnpm install`）。
 2.  在项目根目录运行构建命令：
     ```bash
     wails build
@@ -194,7 +194,7 @@ This project utilizes the standard Wails React-TS template structure. Please ref
 
 ## 📄 许可证
 
-本项目使用了标准的 Wails React-TS 模板结构。请参考 Wails 的许可证及其依赖项（如 `go-gitignore`、React 等）的许可证。如果 Sift 项目本身选择了特定的许可证（例如 MIT 许可证），应在此处添加。
+本项目采用MIT许可证 - 详情请参阅 [LICENSE](LICENSE) 文件。
 
 ## 👤 作者
 
