@@ -2,7 +2,10 @@ module Sift
 
 go 1.23
 
-require github.com/wailsapp/wails/v2 v2.10.1
+require (
+	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
+	github.com/wailsapp/wails/v2 v2.10.1
+)
 
 require (
 	github.com/bep/debounce v1.2.1 // indirect

@@ -1,43 +1,83 @@
 // File: /Users/zeyuji/Projects/AI_Toolkit/Sift/frontend/src/App.tsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import './App.css';
-import FileTree, { FileNode } from './FileTree'; // Import the new component and type
+import FileTree, { FileNode } from './FileTree'; // Import the updated component
 
-// Import Wails runtime functions for Go backend calls
-// Make sure you've run `wails generate` or `wails dev` after backend changes
 import { SelectDirectory, ListDirectory, GenerateContext, CopyToClipboard } from '../wailsjs/go/main/App';
-// Import the input type definition if needed (matches Go struct)
-import { main } from '../wailsjs/go/models'; // Adjust path if needed
+import { main } from '../wailsjs/go/models';
+
+// Helper function (keep or import from FileTree.tsx if moved)
+const getAllPaths = (nodes: FileNode[]): string[] => {
+    let paths: string[] = [];
+    nodes.forEach(node => {
+        paths.push(node.path);
+        if (node.children) {
+            paths = paths.concat(getAllPaths(node.children));
+        }
+    });
+    return paths;
+};
 
 
 function App() {
-    const [selectedDir, setSelectedDir] = useState<string>(""); // Store the root dir path
-    const [fileTree, setFileTree] = useState<FileNode[]>([]);
+    const [selectedDir, setSelectedDir] = useState<string>("");
+    const [fileTree, setFileTree] = useState<FileNode[]>([]); // This holds children of root
     const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
     const [isLoading, setIsLoading] = useState<boolean>(false);
-    const [feedbackMessage, setFeedbackMessage] = useState<string>(""); // For "Copied!" message
+    const [feedbackMessage, setFeedbackMessage] = useState<string>("");
+    const [isTreeExpanded, setIsTreeExpanded] = useState<boolean>(true); // Renamed for clarity
+
+    // Ref for the root checkbox indeterminate state
+    const rootCheckboxRef = useRef<HTMLInputElement>(null);
+
+    // --- Memoized calculations ---
+    const allVisibleFilePaths = useMemo(() => {
+        // Calculate paths based on the *filtered* tree received from Go
+        if (!fileTree || fileTree.length === 0) return [];
+        return getAllPaths(fileTree);
+    }, [fileTree]);
+
+    const numSelected = selectedPaths.size;
+    const numTotalVisible = allVisibleFilePaths.length;
+
+    const selectionState: 'all' | 'none' | 'indeterminate' = useMemo(() => {
+        if (numTotalVisible === 0 || numSelected === 0) return 'none';
+        if (numSelected === numTotalVisible) return 'all';
+        return 'indeterminate';
+    }, [numSelected, numTotalVisible]);
+
+    // --- Effect to set indeterminate state on root checkbox ---
+    useEffect(() => {
+        if (rootCheckboxRef.current) {
+            rootCheckboxRef.current.indeterminate = (selectionState === 'indeterminate');
+            // Also ensure checked state is correct based on selectionState
+            rootCheckboxRef.current.checked = (selectionState === 'all');
+        }
+    }, [selectionState]);
+
 
     // --- Handlers ---
-
     const handleSelectDirectory = async () => {
         setIsLoading(true);
-        setFileTree([]); // Clear previous tree
-        setSelectedPaths(new Set()); // Clear selection
-        setSelectedDir(""); // Clear display path
+        setFileTree([]);
+        setSelectedPaths(new Set());
+        setSelectedDir("");
         setFeedbackMessage("");
+        setIsTreeExpanded(true); // Expand tree on new selection
         try {
             const dir = await SelectDirectory();
-            if (dir) { // Check if a directory was actually selected (not cancelled)
+            if (dir) {
                 setSelectedDir(dir);
+                // Go backend now handles filtering including .gitignore and dotfiles
                 const tree = await ListDirectory(dir);
-                setFileTree(tree);
+                setFileTree(tree); // Set the children of the root
             } else {
-                 setSelectedDir(""); // Explicitly clear if cancelled
+                 setSelectedDir("");
                  console.log("Directory selection cancelled.");
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error selecting or listing directory:", error);
-            setFeedbackMessage(`Error: ${error}`); // Show error
+            setFeedbackMessage(`Error: ${error.message || String(error)}`);
         } finally {
             setIsLoading(false);
         }
@@ -46,20 +86,19 @@ function App() {
     const handleToggleSelect = useCallback((path: string, isDir: boolean, checked: boolean) => {
         setSelectedPaths(prevSelected => {
             const newSelected = new Set(prevSelected);
+            // Recursive function to update children
             const updateChildren = (nodes: FileNode[], select: boolean) => {
                 nodes.forEach(node => {
-                    if (select) {
-                        newSelected.add(node.path);
-                    } else {
-                        newSelected.delete(node.path);
-                    }
-                    if (node.children) {
-                        updateChildren(node.children, select);
-                    }
+                    // Only modify if it's not already in the desired state? No, overwrite.
+                    if (select) { newSelected.add(node.path); }
+                    else { newSelected.delete(node.path); }
+
+                    if (node.children) { updateChildren(node.children, select); }
                 });
             };
 
-            const findNode = (nodes: FileNode[], targetPath: string): FileNode | null => {
+             // Recursive function to find node (needed for children update)
+             const findNode = (nodes: FileNode[], targetPath: string): FileNode | null => {
                 for (const node of nodes) {
                     if (node.path === targetPath) return node;
                     if (node.children) {
@@ -68,48 +107,70 @@ function App() {
                     }
                 }
                 return null;
-            }
+            };
+
+            // Recursive function to update parents upwards (only for checking)
+             const updateParents = (startPath: string, select: boolean) => {
+                if (!select) return; // Only select parents when checking a child
+
+                 let currentPath = startPath;
+                 while (true) {
+                     const separator = currentPath.includes('\\') ? '\\' : '/';
+                     const lastSeparatorIndex = currentPath.lastIndexOf(separator);
+                     if (lastSeparatorIndex <= 0) break;
+
+                     const parentPath = currentPath.substring(0, lastSeparatorIndex);
+                     if (!parentPath || parentPath === selectedDir || parentPath.length < selectedDir.length) break;
+
+                     const parentNode = findNode(fileTree, parentPath); // Check against the visible tree
+                     if (parentNode) {
+                         // Check if all siblings of the current node under the parent are now checked
+                         // This logic is complex. Simpler: just add the parent.
+                          newSelected.add(parentPath);
+                          currentPath = parentPath;
+                     } else {
+                         break; // Parent not in visible tree
+                     }
+                 }
+             };
+
+
+            const node = findNode(fileTree, path); // Find the node in the *current* tree
 
             if (checked) {
                 newSelected.add(path);
-                // If directory, select all children recursively
-                if (isDir) {
-                    const node = findNode(fileTree, path);
-                    if (node?.children) {
-                        updateChildren(node.children, true);
-                    }
+                if (node?.isDir && node.children) {
+                    updateChildren(node.children, true);
                 }
-                 // Select parents upwards (optional, but good UX)
-                 let currentPath = path;
-                 while (true) {
-                    const parentPath = currentPath.substring(0, currentPath.lastIndexOf(window.navigator.platform.startsWith('Win') ? '\\' : '/')); // Basic parent path finding
-                    if (!parentPath || parentPath === selectedDir || parentPath === currentPath) break; // Stop at root or if no parent
-                     const parentNode = findNode(fileTree, parentPath);
-                     if(parentNode) {
-                        newSelected.add(parentPath);
-                        currentPath = parentPath;
-                     } else {
-                         break; // Parent not in current tree view (shouldn't normally happen)
-                     }
-                 }
-
+                updateParents(path, true);
             } else {
                 newSelected.delete(path);
-                // If directory, deselect all children recursively
-                if (isDir) {
-                    const node = findNode(fileTree, path);
-                     if (node?.children) {
-                        updateChildren(node.children, false);
-                    }
+                 if (node?.isDir && node.children) {
+                    updateChildren(node.children, false);
                 }
-                // Deselecting a child shouldn't necessarily deselect the parent unless it's the last one.
-                // Keeping parent selected when deselecting a child is simpler. Advanced logic can be added later.
+                // Deselecting parents is tricky. If you uncheck a file,
+                // should the parent become indeterminate? Yes. If you uncheck
+                // the *last* selected child of a parent, should the parent become unchecked? Maybe.
+                // The indeterminate logic handles the visual state based on children.
+                // We don't need explicit parent deselection logic here if indeterminate works.
             }
 
             return newSelected;
         });
-        setFeedbackMessage(""); // Clear feedback on selection change
-    }, [fileTree, selectedDir]); // Add dependencies
+        setFeedbackMessage("");
+    }, [fileTree, selectedDir]); // Dependencies for useCallback
+
+
+    const handleSelectAllToggle = () => {
+        // This toggle applies to the *visible* files from the filtered tree
+        if (selectionState === 'all') {
+            setSelectedPaths(new Set()); // Deselect all
+        } else {
+            // Select all paths derived from the current fileTree
+            setSelectedPaths(new Set(allVisibleFilePaths));
+        }
+         setFeedbackMessage("");
+    };
 
     const handleGenerate = async () => {
         if (!selectedDir || selectedPaths.size === 0) {
@@ -119,14 +180,12 @@ function App() {
         setIsLoading(true);
         setFeedbackMessage("Generating...");
 
-        // Prepare input for Go function
-        // We need all selected paths, including folders, because the backend
-        // uses this list to decide which *files* under selected folders get content.
+        // Pass only the currently selected paths to the backend
         const pathsArray = Array.from(selectedPaths);
 
-        // Ensure the type matches wailsjs/go/models -> main.GenerateContextInput if strict typing needed
         const input: main.GenerateContextInput = {
              rootDir: selectedDir,
+             // Backend now validates these against isHidden again
              selectedPaths: pathsArray
         };
 
@@ -134,60 +193,98 @@ function App() {
             const contextString = await GenerateContext(input);
             await CopyToClipboard(contextString);
             setFeedbackMessage("Context copied to clipboard!");
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error generating or copying context:", error);
-            setFeedbackMessage(`Error: ${error}`);
+            setFeedbackMessage(`Error: ${error.message || String(error)}`);
         } finally {
             setIsLoading(false);
-            // Optional: clear feedback message after a delay
             setTimeout(() => setFeedbackMessage(""), 3000);
         }
     };
 
-    // --- Render ---
+    const toggleTreeExpansion = () => {
+        setIsTreeExpanded(prev => !prev);
+    };
 
+    const getBaseDirName = (dir: string): string => {
+         if (!dir) return "";
+         const separator = dir.includes('\\') ? '\\' : '/';
+         return dir.substring(dir.lastIndexOf(separator) + 1);
+    };
+
+    // --- Render ---
     return (
         <div id="App" style={styles.appContainer}>
-            <h1 style={styles.title}>Sift - AI Context Builder</h1>
-
-            {/* Controls */}
-            <div style={styles.controls}>
-                <button onClick={handleSelectDirectory} disabled={isLoading} style={styles.button}>
-                    {isLoading ? "Loading..." : "Select Project Directory"}
+            {/* Top Bar: Select Dir Button and Title */}
+             <div style={styles.topBar}>
+                 <button onClick={handleSelectDirectory} disabled={isLoading} style={{...styles.button, ...styles.selectButton}}>
+                    {isLoading && !selectedDir ? "Loading..." : "Select Project"}
                 </button>
-                {selectedDir && <p style={styles.selectedPath}>Selected: {selectedDir}</p>}
-            </div>
+                 <h1 style={styles.title}>Sift Context Builder</h1>
+                 {/* Placeholder for potential future actions */}
+                 <div style={{width: '100px'}}></div>
+             </div>
+
 
             {/* File Tree Area */}
-            <div style={styles.fileTreeContainer}>
-                {isLoading && fileTree.length === 0 && <p>Loading directory...</p>}
-                {!isLoading && !selectedDir && <p>Select a directory to view files.</p>}
-                {selectedDir && fileTree.length === 0 && !isLoading && <p>Directory is empty or filtered.</p>}
+            <div style={styles.fileTreeContainer} className="file-tree-container">
+                {!selectedDir && !isLoading && <p style={styles.placeholderText}>Select a project directory to begin.</p>}
+                {isLoading && !selectedDir && <p style={styles.placeholderText}>Loading...</p>}
+                {selectedDir && isLoading && fileTree.length === 0 && <p style={styles.placeholderText}>Loading directory structure...</p>}
+                 {selectedDir && !isLoading && fileTree.length === 0 && <p style={styles.placeholderText}>Directory appears empty or all items hidden by filters.</p>}
 
-                {fileTree.length > 0 && (
-                    <FileTree
-                        nodes={fileTree}
-                        selectedPaths={selectedPaths}
-                        onToggleSelect={handleToggleSelect}
-                    />
-                )}
+                {/* Render Root Node + Tree if directory is selected and not loading */}
+                {selectedDir && !isLoading && fileTree.length >= 0 && ( // Render root even if tree is empty initially
+                    <ul style={styles.rootList}> {/* Use UL for semantic consistency */}
+                        <li style={styles.rootListItem}>
+                            {/* Root Item Controls */}
+                            <div style={styles.rootItemControls}>
+                                <span onClick={toggleTreeExpansion} style={styles.rootToggle} title={isTreeExpanded ? "Collapse All" : "Expand All"}>
+                                    {isTreeExpanded ? '▾' : '▸'}
+                                </span>
+                                <input
+                                    ref={rootCheckboxRef}
+                                    type="checkbox"
+                                    style={styles.rootCheckbox}
+                                    // Checked state is handled by the useEffect based on selectionState
+                                    onChange={handleSelectAllToggle}
+                                    title={selectionState === 'all' ? "Deselect All" : "Select All"}
+                                    disabled={fileTree.length === 0} // Disable if nothing to select
+                                />
+                                <span style={styles.rootIcon}>{' '}</span> {/* Placeholder to align with file icons */}
+                                <span style={styles.rootName}>{getBaseDirName(selectedDir)}</span>
+                                 {/* Add other root icons here if needed (e.g., Refresh) */}
+                            </div>
+
+                             {/* Render Actual File Tree (conditionally) */}
+                            {isTreeExpanded && fileTree.length > 0 && (
+                                <div style={styles.nestedTree}>
+                                    <FileTree
+                                        nodes={fileTree} // Pass only children
+                                        selectedPaths={selectedPaths}
+                                        onToggleSelect={handleToggleSelect}
+                                        level={0} // Start nested tree at level 0 indentation relative to root padding
+                                    />
+                                </div>
+                            )}
+                            {isTreeExpanded && fileTree.length === 0 && !isLoading && (
+                                 <p style={styles.emptyTreeText}>No visible files or folders found.</p>
+                            )}
+                        </li>
+                    </ul>
+                 )}
             </div>
+
 
             {/* Generate Button & Feedback */}
             <div style={styles.generateArea}>
-                 {/* Placeholder for future settings
-                 <div style={styles.settingsArea}>
-                     <h4>Settings (Placeholder)</h4>
-                     <label>API Key: <input type="password" placeholder="sk-..."/></label><br/>
-                     <label>Endpoint: <input type="text" placeholder="https://api.openai.com/v1"/></label>
-                 </div>
-                 */}
                 <button
                     onClick={handleGenerate}
-                    disabled={isLoading || selectedPaths.size === 0}
+                    disabled={isLoading || numSelected === 0}
                     style={{ ...styles.button, ...styles.generateButton }}
+                    title={numSelected === 0 ? "Select files or folders first" : "Generate context and copy to clipboard"}
                 >
-                    {isLoading ? "Generating..." : "Generate & Copy Context"}
+                    {isLoading ? "Generating..." : `Generate & Copy Context (${numSelected} items)`}
                 </button>
                 {feedbackMessage && <p style={styles.feedback}>{feedbackMessage}</p>}
             </div>
@@ -195,78 +292,130 @@ function App() {
     );
 }
 
-// --- Basic Inline Styles (Consider moving to App.css for larger projects) ---
+// --- Styles --- (Adjust as needed)
 const styles: { [key: string]: React.CSSProperties } = {
     appContainer: {
         display: 'flex',
         flexDirection: 'column',
         height: '100vh',
-        padding: '20px',
-        boxSizing: 'border-box', // Include padding in height
-        overflow: 'hidden', // Prevent body scroll
-        textAlign: 'left', // Override global center align from style.css for layout
+        padding: '0', // Remove padding from container, control inside sections
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+        backgroundColor: '#2a3a4a', // Darker background overall
+        color: '#e0e0e0',
+    },
+    topBar: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '8px 15px',
+        backgroundColor: '#1b2636', // Very dark top bar
+        borderBottom: '1px solid #3a4a5a',
+        flexShrink: 0,
     },
     title: {
+        margin: 0,
+        color: '#e0e0e0',
+        fontSize: '1.2em', // Smaller title in top bar
         textAlign: 'center',
-        marginTop: 0,
-        marginBottom: '20px',
-        color: '#eee'
     },
-    controls: {
-        marginBottom: '15px',
-        textAlign: 'center', // Center the select button
-    },
-    selectedPath: {
-         marginTop: '10px',
-         fontSize: '0.9em',
-         color: '#aaa',
-         wordBreak: 'break-all', // Prevent long paths from overflowing
+    selectButton: {
+        width: '100px', // Fixed width for the button
+        textAlign: 'center',
+        backgroundColor: '#4a90e2',
+        margin: 0, // Remove margin if controlled by flex space-between
     },
     fileTreeContainer: {
-        flexGrow: 1, // Takes up available space
-        border: '1px solid #444',
-        borderRadius: '5px',
+        flexGrow: 1, // Takes up remaining space
         padding: '10px',
-        marginBottom: '15px',
-        overflowY: 'auto', // Enable scrolling for the tree
-        backgroundColor: '#2a3a4a' // Slightly different background
+        overflowY: 'auto',
+        backgroundColor: '#223040', // Dark tree background
+    },
+    placeholderText: {
+        color: '#778899', // Lighter grey for placeholder
+        textAlign: 'center',
+        marginTop: '20px',
+    },
+     rootList: {
+        listStyle: 'none',
+        padding: 0,
+        margin: 0,
+    },
+    rootListItem: {
+        // Container for the root node's controls and its nested tree
+    },
+    rootItemControls: {
+        display: 'flex',
+        alignItems: 'center',
+        padding: '4px 0',
+        cursor: 'default',
+    },
+    rootToggle: {
+        width: '15px',
+        display: 'inline-block',
+        textAlign: 'center',
+        marginRight: '3px',
+        cursor: 'pointer',
+        color: '#c5d8e9',
+        fontSize: '1.1em',
+    },
+    rootCheckbox: {
+         marginRight: '6px',
+         cursor: 'pointer',
+         flexShrink: 0,
+    },
+    rootIcon: { // Keep spacing consistent with FileTreeItem
+        width: '1em', // Adjust as needed to match folder/file icon width
+        marginRight: '4px',
+        display: 'inline-block',
+    },
+    rootName: {
+        fontWeight: 'bold',
+        color: '#e0e0e0',
+    },
+    nestedTree: {
+       paddingLeft: '15px', // Indent the actual FileTree component relative to root controls
+       borderLeft: '1px solid #445566', // Optional visual indicator for nesting
+       marginLeft: '7px', // Align border with the toggle arrow center
+       marginTop: '4px',
+    },
+     emptyTreeText: {
+        paddingLeft: '30px', // Indent message
+        color: '#778899',
+        fontStyle: 'italic',
+        fontSize: '0.9em',
+        marginTop: '5px',
     },
     generateArea: {
-        textAlign: 'center', // Center the generate button
-    },
-    settingsArea: { // Placeholder styling
-        border: '1px dashed #555',
-        padding: '10px',
-        marginBottom: '15px',
-        textAlign: 'left',
+        textAlign: 'center',
+        padding: '15px',
+        borderTop: '1px solid #3a4a5a',
+        backgroundColor: '#1b2636', // Match top bar
+        flexShrink: 0,
     },
     button: {
-        padding: '8px 15px',
+        padding: '7px 14px',
         border: 'none',
         borderRadius: '4px',
-        backgroundColor: '#4a90e2',
+        backgroundColor: '#556a80',
         color: 'white',
         cursor: 'pointer',
-        fontSize: '1em',
-        transition: 'background-color 0.2s ease',
+        fontSize: '0.9em',
+        transition: 'background-color 0.2s ease, opacity 0.2s ease',
+        margin: '0 5px', // Keep margin for spacing if multiple buttons exist
     },
      generateButton: {
          backgroundColor: '#50e3c2',
-         color: '#111'
+         color: '#111827',
+         fontWeight: 'bold',
      },
     feedback: {
         marginTop: '10px',
-        color: '#50e3c2', // Use a noticeable color for feedback
+        color: '#50e3c2',
         textAlign: 'center',
-        minHeight: '1.2em', // Reserve space to prevent layout jumps
+        minHeight: '1.1em',
+        fontSize: '0.9em',
     }
 };
-
-// Add :disabled and :hover styles to App.css if needed
-// Example in App.css:
-// button:disabled { background-color: #555; cursor: not-allowed; }
-// button:hover:not(:disabled) { background-color: #6aaaf0; }
-// button.generateButton:hover:not(:disabled) { background-color: #72f5d5; }
-
 
 export default App;
