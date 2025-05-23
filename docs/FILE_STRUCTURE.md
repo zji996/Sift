@@ -1,0 +1,149 @@
+# Sift 项目文件结构说明
+
+## 📁 根目录文件
+
+### 核心配置文件
+- **`wails.json`** - Wails框架配置文件，定义应用名称、构建命令等
+- **`go.mod`** - Go模块依赖管理文件
+- **`go.sum`** - Go依赖版本锁定文件
+- **`package.json`** - 根级npm配置（主要用于全局脚本）
+- **`.gitignore`** - Git忽略规则
+
+### Go 后端源码
+- **`main.go`** - 应用程序入口点，Wails应用初始化
+- **`app.go`** - 主应用结构体，包含暴露给前端的方法
+- **`types.go`** - Go类型定义（DirectoryEntry, FileContentResponse等）
+- **`filetree.go`** - 文件系统遍历逻辑，处理gitignore规则
+- **`filecontent.go`** - 文件内容读取，二进制文件检测
+
+### 构建产物
+- **`Sift.exe`** - Windows平台的可执行文件（构建后生成）
+
+## 📁 frontend/ 目录 - React前端
+
+### 根配置文件
+- **`package.json`** - 前端依赖和脚本配置
+- **`package.json.md5`** - 依赖校验文件
+- **`vite.config.ts`** - Vite构建工具配置
+- **`tailwind.config.js`** - TailwindCSS样式框架配置
+- **`tsconfig.json`** - TypeScript编译配置
+- **`tsconfig.node.json`** - Node.js环境的TypeScript配置
+- **`index.html`** - HTML入口文件
+
+### 源代码目录 (src/)
+```
+src/
+├── App.tsx              # 主应用组件，包含所有业务逻辑
+├── main.tsx            # React应用入口点
+├── style.css           # 全局样式文件
+├── vite-env.d.ts       # Vite环境类型定义
+├── types/
+│   └── index.ts        # TypeScript接口定义
+├── components/
+│   └── DirectoryTreeNode.tsx  # 可折叠目录树组件
+└── assets/
+    ├── fonts/          # 字体文件（Nunito字体）
+    └── images/         # 图片资源
+```
+
+### 构建产物
+- **`dist/`** - Vite构建输出目录（构建后生成）
+
+### Wails集成
+- **`wailsjs/`** - Wails自动生成的JS绑定文件
+
+## 📁 build/ 目录 - 构建配置
+
+### 跨平台构建资源
+- **`appicon.png`** - 应用图标源文件
+- **`README.md`** - 构建目录说明
+
+### macOS构建配置 (darwin/)
+- **`Info.plist`** - macOS应用信息配置（生产环境）
+- **`Info.dev.plist`** - macOS应用信息配置（开发环境）
+
+### Windows构建配置 (windows/)
+- **`icon.ico`** - Windows应用图标
+- **`info.json`** - Windows版本信息
+- **`wails.exe.manifest`** - Windows应用清单文件
+- **`installer/`** - NSIS安装程序配置
+  - **`project.nsi`** - 主安装脚本
+  - **`wails_tools.nsh`** - Wails工具宏定义
+
+### 构建输出
+- **`bin/`** - 编译后的可执行文件存放目录
+
+## 📁 docs/ 目录 - 项目文档
+
+- **`AI1.md`** - 第一次AI开发对话记录
+- **`AI2.md`** - 第二次AI开发对话记录
+- **`PROJECT_OVERVIEW.md`** - 项目概览（本次新增）
+- **`FILE_STRUCTURE.md`** - 文件结构说明（本文档）
+
+## 📁 node_modules/ 目录
+
+前端依赖包目录，由npm自动管理，包含：
+- React生态系统包
+- TypeScript相关工具
+- TailwindCSS及其依赖
+- Vite构建工具链
+
+## 🔍 关键文件解析
+
+### 最重要的文件（AI应重点关注）
+
+1. **`frontend/src/App.tsx`** (387行)
+   - 应用的核心业务逻辑
+   - 状态管理和用户交互
+   - 文件选择和输出生成逻辑
+
+2. **`filetree.go`** (97行)
+   - 文件系统遍历的核心算法
+   - gitignore规则处理
+   - 目录结构递归构建
+
+3. **`filecontent.go`** (96行)
+   - 文件内容读取策略
+   - 二进制文件识别逻辑
+   - 批量文件处理
+
+4. **`types.go`** (25行)
+   - 关键数据结构定义
+   - 前后端数据交换格式
+
+### 配置文件优先级
+
+1. **`wails.json`** - 应用级配置
+2. **`frontend/package.json`** - 前端依赖
+3. **`go.mod`** - 后端依赖
+4. **构建配置文件** - 平台特定设置
+
+### 可以忽略的文件（展示给AI时）
+
+- `node_modules/` - 依赖包，过于庞大
+- `build/bin/` - 编译产物
+- `frontend/dist/` - 构建输出
+- `*.exe` - 可执行文件
+- 字体和图片文件 - 通常不影响代码逻辑
+- Lock文件 - 版本锁定信息
+
+## 📋 给AI的建议阅读顺序
+
+1. **项目理解阶段**
+   - README.md → PROJECT_OVERVIEW.md → 本文件
+
+2. **架构理解阶段**
+   - main.go → app.go → types.go
+
+3. **核心逻辑理解阶段**
+   - filetree.go → filecontent.go
+   - frontend/src/App.tsx
+
+4. **细节实现阶段**
+   - frontend/src/components/DirectoryTreeNode.tsx
+   - frontend/src/types/index.ts
+
+5. **配置理解阶段**
+   - wails.json → go.mod → frontend/package.json
+
+这样的阅读顺序能够帮助AI从宏观到微观逐步理解整个项目的设计和实现。 

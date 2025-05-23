@@ -1,0 +1,150 @@
+# Sift 项目 .gitignore
+# 专门为给AI展示项目优化的忽略规则
+
+# ===================
+# 核心忽略（必须忽略）
+# ===================
+
+# 依赖包目录（体积巨大，对AI无价值）
+node_modules/
+frontend/node_modules/
+
+# 构建产物（可重新生成）
+frontend/dist/
+build/bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.app
+
+# 自动生成的绑定文件
+frontend/wailsjs/
+
+# ===================
+# 开发环境文件
+# ===================
+
+# 编辑器配置
+.vscode/
+.idea/
+*.sublime-*
+*.swp
+*.swo
+
+# 操作系统临时文件
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# 环境变量和配置
+.env
+.env.local
+.env.*.local
+
+# 日志文件
+*.log
+logs/
+
+# ===================
+# 保留对AI有用的文件
+# ===================
+# 以下文件虽然通常被忽略，但对理解项目有帮助：
+# - package-lock.json （依赖版本信息）
+# - 构建配置文件 （理解构建过程）
+# - 文档文件 （项目说明）
+
+# 但仍要忽略这些大文件：
+coverage/
+.nyc_output/
+*.tgz
+*.tar.gz
+*.zip
+
+# ===================
+# 项目特定忽略
+# ===================
+
+# 测试输出和临时文件
+*.tmp
+*.temp
+*.bak
+*.orig
+
+# 编译缓存
+.cache/
+*.cache
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+
+# Build directories
+build/bin/
+dist/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Wails build cache
+app.syso
+wails.json.bak
+
+# Frontend build artifacts
+frontend/dist/
+frontend/build/
+
+# Temporary files
+*.tmp
+*.temp
