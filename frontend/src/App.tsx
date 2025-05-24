@@ -3,69 +3,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import './style.css';
 import { BrowserOpenDirectoryDialog, ListDirectoryContents, GetMultipleFileContents } from '../wailsjs/go/main/App.js';
 import { DirectoryEntry, FileContentResponse as FrontendFileContentResponse } from './types/index.js';
-import DirectoryTreeNode from './components/DirectoryTreeNode.js';
 import { ToastManager } from './components/Toast.js';
 import { FilterPanel } from './components/FilterPanel.js';
 import ParticleBackground from './components/ParticleBackground.js';
-import { Logo } from './components/Logo.js';
 import { EmptyState } from './components/EmptyState.js';
+import { FileSizePanel } from './components/FileSizePanel.js';
+import Header from './components/Header.js';
+import FileTreePanel from './components/FileTreePanel.js';
+import OutputPanel from './components/OutputPanel.js';
 import { useToast } from './hooks/useToast.js';
 
-// 辅助函数：格式化字节大小
-const formatBytes = (bytes: number, decimals = 2) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-};
 
-// 加载组件
-const LoadingSpinner: React.FC<{ message?: string }> = ({ message = "加载中..." }) => (
-    <motion.div
-        className="flex flex-col items-center justify-center py-8 space-y-4"
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.8 }}
-    >
-        <Logo size="md" showText={false} animated={true} />
-        <div className="loading-spinner" />
-        <motion.p 
-            className="text-gray-400 text-sm"
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ repeat: Infinity, duration: 1.5 }}
-        >
-            {message}
-        </motion.p>
-    </motion.div>
-);
-
-// 主题切换按钮组件
-const ThemeToggle: React.FC<{ isDark: boolean; onToggle: () => void }> = ({ isDark, onToggle }) => (
-    <motion.button
-        onClick={onToggle}
-        className="theme-toggle relative flex items-center"
-        title={isDark ? "切换到浅色模式" : "切换到深色模式"}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-    >
-        <motion.div
-            className="absolute left-1 text-xs"
-            animate={{ opacity: isDark ? 0 : 1 }}
-            transition={{ duration: 0.2 }}
-        >
-            ☀️
-        </motion.div>
-        <motion.div
-            className="absolute right-1 text-xs"
-            animate={{ opacity: isDark ? 1 : 0 }}
-            transition={{ duration: 0.2 }}
-        >
-            🌙
-        </motion.div>
-    </motion.button>
-);
 
 function App() {
     const [rootDir, setRootDir] = useState<string | null>(null);
@@ -392,19 +340,6 @@ function App() {
         }
     };
 
-    const headerVariants = {
-        initial: { y: -50, opacity: 0 },
-        animate: { 
-            y: 0, 
-            opacity: 1,
-            transition: { 
-                type: "spring",
-                damping: 25,
-                stiffness: 200
-            }
-        }
-    };
-
     const cardVariants = {
         initial: { y: 20, opacity: 0, scale: 0.95 },
         animate: { 
@@ -437,97 +372,20 @@ function App() {
             <ToastManager toasts={toasts} onRemoveToast={removeToast} />
             
             {/* 顶部工具栏 */}
-            <motion.header 
-                className="flex-shrink-0 p-6 glass-effect border-b border-white/10"
-                variants={headerVariants}
-            >
-                <div className="flex items-center justify-between flex-wrap gap-4">
-                    <Logo size="lg" showText={true} animated={true} />
-                    <div className="flex flex-wrap gap-3 items-center">
-                        {/* 主题切换按钮 */}
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: 0.3 }}
-                        >
-                            <ThemeToggle isDark={isDarkMode} onToggle={toggleTheme} />
-                        </motion.div>
-                        
-                        <motion.button
-                            onClick={handleSelectDirectory}
-                            disabled={isLoading}
-                            className="btn-apple px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl shadow-lg disabled:opacity-50 font-medium"
-                            whileHover={{ scale: 1.05, y: -2 }}
-                            whileTap={{ scale: 0.95 }}
-                        >
-                            {isLoading && !rootDir ? (
-                                <div className="flex items-center space-x-2">
-                                    <div className="loading-spinner w-4 h-4" />
-                                    <span>加载中...</span>
-                                </div>
-                            ) : '选择项目目录'}
-                        </motion.button>
-                        <motion.button
-                            onClick={handleGenerateOutput}
-                            disabled={isGenerating || !rootDir || selectedPaths.size === 0}
-                            className="btn-apple px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl shadow-lg disabled:opacity-50 font-medium"
-                            whileHover={{ scale: 1.05, y: -2 }}
-                            whileTap={{ scale: 0.95 }}
-                        >
-                            {isGenerating ? (
-                                <div className="flex items-center space-x-2">
-                                    <div className="loading-spinner w-4 h-4" />
-                                    <span>生成中...</span>
-                                </div>
-                            ) : '生成输出'}
-                        </motion.button>
-                        <motion.button
-                            onClick={handleCopyAll}
-                            disabled={!fileMapOutput && !fileContentsOutput}
-                            className="btn-apple px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl shadow-lg disabled:opacity-50 font-medium"
-                            whileHover={{ scale: 1.05, y: -2 }}
-                            whileTap={{ scale: 0.95 }}
-                        >
-                            复制全部
-                        </motion.button>
-                    </div>
-                </div>
-                
-                {/* 状态栏 */}
-                <motion.div 
-                    className="mt-4 flex items-center justify-between text-sm"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5 }}
-                >
-                    <div className="flex items-center space-x-6 text-gray-400">
-                        <div className="flex items-center space-x-2">
-                            <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                            <span>
-                                {rootDir ? `项目: ${rootDir.split(/[\/\\]/).pop()}` : "未选择目录"}
-                            </span>
-                        </div>
-                        {totalPathsCount > 0 && (
-                            <div className="flex items-center space-x-2">
-                                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                                <span>已选择: {selectedPaths.size} / {totalPathsCount} 项</span>
-                            </div>
-                        )}
-                    </div>
-                    <AnimatePresence>
-                        {error && (
-                            <motion.div 
-                                className="text-red-400 max-w-md truncate bg-red-500/10 px-3 py-1 rounded-lg border border-red-500/20"
-                                initial={{ opacity: 0, x: 20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 20 }}
-                            >
-                                {error}
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </motion.div>
-            </motion.header>
+            <Header
+                isDarkMode={isDarkMode}
+                onToggleTheme={toggleTheme}
+                onSelectDirectory={handleSelectDirectory}
+                onGenerateOutput={handleGenerateOutput}
+                onCopyAll={handleCopyAll}
+                isLoading={isLoading}
+                isGenerating={isGenerating}
+                rootDir={rootDir}
+                selectedPathsSize={selectedPaths.size}
+                totalPathsCount={totalPathsCount}
+                error={error}
+                hasOutput={Boolean(fileMapOutput || fileContentsOutput)}
+            />
 
             {/* 主内容区域 */}
             <motion.div 
@@ -596,219 +454,36 @@ function App() {
                         </AnimatePresence>
 
                         {/* 左侧：文件树 */}
-                        <motion.div 
-                            className="flex flex-col glass-effect-strong rounded-2xl shadow-2xl overflow-hidden border border-white/10"
-                            variants={cardVariants}
-                            layout
-                        >
-                            <div className="flex-shrink-0 p-4 bg-gradient-to-r from-purple-600/20 to-blue-600/20 border-b border-white/10">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-3">
-                                        <motion.div
-                                            className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center"
-                                            whileHover={{ scale: 1.1, rotate: 10 }}
-                                        >
-                                            <span className="text-sm">🌳</span>
-                                        </motion.div>
-                                        <h2 className="text-lg font-semibold gradient-text">文件树</h2>
-                                        <motion.button
-                                            onClick={toggleFilterPanel}
-                                            disabled={!rootDir}
-                                            className={`btn-apple p-2 rounded-lg transition-all ${
-                                                showFilterPanel 
-                                                    ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-lg' 
-                                                    : 'glass-effect text-gray-300 hover:text-white'
-                                            } disabled:opacity-50`}
-                                            title="智能过滤"
-                                            whileHover={{ scale: 1.1 }}
-                                            whileTap={{ scale: 0.9 }}
-                                        >
-                                            🔍
-                                        </motion.button>
-                                    </div>
-                                    <motion.button
-                                        onClick={handleSelectAll}
-                                        disabled={!rootDir || isLoading || tree.length === 0}
-                                        className="btn-apple px-4 py-2 text-sm bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg disabled:opacity-50 font-medium"
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                    >
-                                        {isAllSelected ? '取消全选' : '全选'}
-                                    </motion.button>
-                                </div>
-                            </div>
-                            <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
-                                <AnimatePresence mode="wait">
-                                    {isLoading && rootDir && (
-                                        <LoadingSpinner message="正在扫描文件..." />
-                                    )}
-                                    {tree.length > 0 ? (
-                                        <motion.div
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            exit={{ opacity: 0 }}
-                                        >
-                                            {tree.map((node, index) => (
-                                                <motion.div
-                                                    key={node.path}
-                                                    initial={{ opacity: 0, x: -20 }}
-                                                    animate={{ opacity: 1, x: 0 }}
-                                                    transition={{ delay: index * 0.05 }}
-                                                >
-                                                    <DirectoryTreeNode
-                                                        node={node}
-                                                        selectedPaths={selectedPaths}
-                                                        onToggleSelect={toggleSelectPath}
-                                                        level={0}
-                                                    />
-                                                </motion.div>
-                                            ))}
-                                        </motion.div>
-                                    ) : (
-                                        !isLoading && rootDir && (
-                                            <motion.div
-                                                className="text-center py-8"
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                            >
-                                                <div className="text-6xl mb-4">📂</div>
-                                                <p className="text-gray-400">目录为空或无可读文件</p>
-                                            </motion.div>
-                                        )
-                                    )}
-                                </AnimatePresence>
-                            </div>
-                        </motion.div>
+                        <FileTreePanel
+                            tree={tree}
+                            selectedPaths={selectedPaths}
+                            onToggleSelect={toggleSelectPath}
+                            onToggleFilterPanel={toggleFilterPanel}
+                            onSelectAll={handleSelectAll}
+                            showFilterPanel={showFilterPanel}
+                            rootDir={rootDir}
+                            isLoading={isLoading}
+                            isAllSelected={isAllSelected}
+                        />
 
                         {/* 中间：按大小排序的文件 */}
-                        <motion.div 
-                            className="flex flex-col glass-effect-strong rounded-2xl shadow-2xl overflow-hidden border border-white/10"
-                            variants={cardVariants}
-                        >
-                            <div className="flex-shrink-0 p-4 bg-gradient-to-r from-orange-600/20 to-red-600/20 border-b border-white/10">
-                                <div className="flex items-center space-x-3">
-                                    <motion.div
-                                        className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center"
-                                        whileHover={{ scale: 1.1, rotate: 10 }}
-                                    >
-                                        <span className="text-sm">📊</span>
-                                    </motion.div>
-                                    <h2 className="text-lg font-semibold gradient-text">文件大小排序</h2>
-                                    <span className="text-xs text-gray-400 bg-gray-600/20 px-2 py-1 rounded-full">前50</span>
-                                </div>
-                            </div>
-                            <div className="flex-1 p-4 overflow-y-auto custom-scrollbar">
-                                <AnimatePresence>
-                                    {filesBySize.length > 0 ? (
-                                        <motion.div className="space-y-2">
-                                            {filesBySize.slice(0, 50).map((file, index) => (
-                                                <motion.div
-                                                    key={file.path}
-                                                    className={`card-hover flex justify-between items-center p-3 rounded-lg border transition-all cursor-pointer ${
-                                                        selectedPaths.has(file.path) 
-                                                            ? 'bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-blue-500/30' 
-                                                            : 'border-white/10 hover:border-blue-400/30 hover:bg-white/5'
-                                                    }`}
-                                                    onClick={() => toggleSelectPath(file.path, file.isDir, file.children)}
-                                                    initial={{ opacity: 0, x: 20 }}
-                                                    animate={{ opacity: 1, x: 0 }}
-                                                    transition={{ delay: index * 0.02 }}
-                                                    whileHover={{ scale: 1.02, x: 4 }}
-                                                >
-                                                    <span className="truncate text-gray-300 text-sm font-medium flex-1">
-                                                        {file.name}
-                                                    </span>
-                                                    <motion.span 
-                                                        className="file-size-badge text-xs text-blue-300 font-mono ml-3 px-2 py-1 rounded-full flex-shrink-0"
-                                                        whileHover={{ scale: 1.05 }}
-                                                    >
-                                                        {formatBytes(file.size || 0)}
-                                                    </motion.span>
-                                                </motion.div>
-                                            ))}
-                                        </motion.div>
-                                    ) : (
-                                        <motion.div
-                                            className="text-center py-8"
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                        >
-                                            <div className="text-6xl mb-4">📊</div>
-                                            <p className="text-gray-400">无文件可显示</p>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </div>
-                        </motion.div>
+                        <FileSizePanel
+                            filesBySize={filesBySize}
+                            selectedPaths={selectedPaths}
+                            onToggleSelect={toggleSelectPath}
+                        />
 
                         {/* 右侧：输出区域 */}
                         <motion.div 
-                            className="flex flex-col space-y-6 overflow-hidden"
+                            className="overflow-hidden"
                             variants={cardVariants}
                         >
-                            {/* 文件映射输出 */}
-                            <div className="flex flex-col glass-effect-strong rounded-2xl shadow-2xl flex-1 overflow-hidden border border-white/10">
-                                <div className="flex-shrink-0 p-4 bg-gradient-to-r from-green-600/20 to-teal-600/20 border-b border-white/10">
-                                    <div className="flex justify-between items-center">
-                                        <div className="flex items-center space-x-3">
-                                            <motion.div
-                                                className="w-8 h-8 rounded-full bg-gradient-to-r from-green-500 to-teal-500 flex items-center justify-center"
-                                                whileHover={{ scale: 1.1, rotate: 10 }}
-                                            >
-                                                <span className="text-sm">🗺️</span>
-                                            </motion.div>
-                                            <h2 className="text-lg font-semibold gradient-text">文件映射</h2>
-                                        </div>
-                                        <motion.button
-                                            onClick={() => copyToClipboard(fileMapOutput, "文件映射")}
-                                            disabled={!fileMapOutput}
-                                            className="btn-apple px-4 py-2 text-sm bg-gradient-to-r from-green-500 to-teal-500 text-white rounded-lg disabled:opacity-50 font-medium"
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
-                                        >
-                                            复制
-                                        </motion.button>
-                                    </div>
-                                </div>
-                                <textarea
-                                    readOnly
-                                    value={fileMapOutput}
-                                    placeholder="<file_map> 将在这里显示..."
-                                    className="flex-1 p-4 bg-transparent text-gray-200 border-0 resize-none font-mono text-xs focus:outline-none custom-scrollbar placeholder-gray-500"
-                                />
-                            </div>
-
-                            {/* 文件内容输出 */}
-                            <div className="flex flex-col glass-effect-strong rounded-2xl shadow-2xl flex-1 overflow-hidden border border-white/10">
-                                <div className="flex-shrink-0 p-4 bg-gradient-to-r from-cyan-600/20 to-blue-600/20 border-b border-white/10">
-                                    <div className="flex justify-between items-center">
-                                        <div className="flex items-center space-x-3">
-                                            <motion.div
-                                                className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center"
-                                                whileHover={{ scale: 1.1, rotate: 10 }}
-                                            >
-                                                <span className="text-sm">📄</span>
-                                            </motion.div>
-                                            <h2 className="text-lg font-semibold gradient-text">文件内容</h2>
-                                        </div>
-                                        <motion.button
-                                            onClick={() => copyToClipboard(fileContentsOutput, "文件内容")}
-                                            disabled={!fileContentsOutput}
-                                            className="btn-apple px-4 py-2 text-sm bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg disabled:opacity-50 font-medium"
-                                            whileHover={{ scale: 1.05 }}
-                                            whileTap={{ scale: 0.95 }}
-                                        >
-                                            复制
-                                        </motion.button>
-                                    </div>
-                                </div>
-                                <textarea
-                                    readOnly
-                                    value={fileContentsOutput}
-                                    placeholder="所选文本文件的 <file_contents> 将在这里显示..."
-                                    className="flex-1 p-4 bg-transparent text-gray-200 border-0 resize-none font-mono text-xs focus:outline-none custom-scrollbar placeholder-gray-500"
-                                />
-                            </div>
+                            <OutputPanel
+                                fileMapOutput={fileMapOutput}
+                                fileContentsOutput={fileContentsOutput}
+                                onCopyFileMap={() => copyToClipboard(fileMapOutput, "文件映射")}
+                                onCopyFileContents={() => copyToClipboard(fileContentsOutput, "文件内容")}
+                            />
                         </motion.div>
                     </div>
                 )}
