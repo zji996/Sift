@@ -87,8 +87,8 @@ git push origin v1.0.1
 ### 构建失败
 
 1. **检查 Go 版本**：确保使用 Go 1.23+
-2. **检查依赖**：运行 `go mod tidy` 清理依赖
-3. **检查前端**：确保 `npm install` 无错误
+2. **检查 Node.js 版本**：确保使用 Node.js 18+
+3. **检查依赖**：运行 go mod tidy 清理 Go 依赖，npm install 安装前端依赖
 4. **查看日志**：在 GitHub Actions 页面查看详细错误信息
 
 ### macOS 代码签名（可选）

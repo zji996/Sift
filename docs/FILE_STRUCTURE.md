@@ -13,8 +13,8 @@
 - **`main.go`** - 应用程序入口点，Wails应用初始化
 - **`app.go`** - 主应用结构体，包含暴露给前端的方法
 - **`types.go`** - Go类型定义（DirectoryEntry, FileContentResponse等）
-- **`filetree.go`** - 文件系统遍历逻辑，处理gitignore规则
-- **`filecontent.go`** - 文件内容读取，二进制文件检测
+- **`filetree.go`** - 文件系统遍历逻辑，**集成.gitignore规则和默认忽略模式**
+- **`filecontent.go`** - 文件内容读取，**智能二进制文件检测、无用文件类型过滤和文件大小限制**
 
 ### 构建产物
 - **`Sift.exe`** - Windows平台的可执行文件（构建后生成）
@@ -23,7 +23,7 @@
 
 ### 根配置文件
 - **`package.json`** - 前端依赖和脚本配置
-- **`package.json.md5`** - 依赖校验文件
+- **`package-lock.json`** - 前端依赖版本锁定文件
 - **`vite.config.ts`** - Vite构建工具配置
 - **`tailwind.config.js`** - TailwindCSS样式框架配置
 - **`tsconfig.json`** - TypeScript编译配置
@@ -31,20 +31,25 @@
 - **`index.html`** - HTML入口文件
 
 ### 源代码目录 (src/)
-```
 src/
-├── App.tsx              # 主应用组件，包含所有业务逻辑
-├── main.tsx            # React应用入口点
-├── style.css           # 全局样式文件
-├── vite-env.d.ts       # Vite环境类型定义
+├── App.tsx # 主应用组件，包含所有业务逻辑
+├── main.tsx # React应用入口点
+├── style.css # 全局样式文件
+├── vite-env.d.ts # Vite环境类型定义
 ├── types/
-│   └── index.ts        # TypeScript接口定义
+│ └── index.ts # TypeScript接口定义
 ├── components/
-│   └── DirectoryTreeNode.tsx  # 可折叠目录树组件
+│ └── DirectoryTreeNode.tsx # 可折叠目录树组件
+│ └── FilterPanel.tsx # 智能过滤面板
+│ └── Toast.tsx # 消息通知组件
+│ └── ... # 其他UI组件
+├── hooks/
+│ └── useToast.ts # Toast状态管理Hook
+├── utils/
+│ └── formatUtils.ts # 格式化工具函数
 └── assets/
-    ├── fonts/          # 字体文件（Nunito字体）
-    └── images/         # 图片资源
-```
+├── fonts/ # 字体文件（Nunito字体）
+└── images/ # 图片资源
 
 ### 构建产物
 - **`dist/`** - Vite构建输出目录（构建后生成）
@@ -75,10 +80,13 @@ src/
 
 ## 📁 docs/ 目录 - 项目文档
 
-- **`AI1.md`** - 第一次AI开发对话记录
-- **`AI2.md`** - 第二次AI开发对话记录
-- **`PROJECT_OVERVIEW.md`** - 项目概览（本次新增）
+- **`ANIMATION_OPTIMIZATION.md`** - 动画优化说明
 - **`FILE_STRUCTURE.md`** - 文件结构说明（本文档）
+- **`OPTIMIZATION_SUMMARY.md`** - 项目优化总结
+- **`PROJECT_OVERVIEW.md`** - 项目概览
+- **`RELEASE_GUIDE.md`** - 发布指南
+- **`TOAST_PROGRESS_FIX.md`** - Toast进度条修复文档
+- **`UI_IMPROVEMENTS.md`** - UI改进总结
 
 ## 📁 node_modules/ 目录
 
@@ -92,58 +100,60 @@ src/
 
 ### 最重要的文件（AI应重点关注）
 
-1. **`frontend/src/App.tsx`** (387行)
-   - 应用的核心业务逻辑
-   - 状态管理和用户交互
-   - 文件选择和输出生成逻辑
+1.  **`frontend/src/App.tsx`** (387行)
+    -   应用的核心业务逻辑
+    -   状态管理和用户交互
+    -   文件选择和输出生成逻辑
+    -   集成智能过滤和Toast系统
 
-2. **`filetree.go`** (97行)
-   - 文件系统遍历的核心算法
-   - gitignore规则处理
-   - 目录结构递归构建
+2.  **`filetree.go`** (97行)
+    -   文件系统遍历的核心算法
+    -   `.gitignore`规则和默认忽略模式处理
+    -   目录结构递归构建
 
-3. **`filecontent.go`** (96行)
-   - 文件内容读取策略
-   - 二进制文件识别逻辑
-   - 批量文件处理
+3.  **`filecontent.go`** (96行)
+    -   文件内容读取策略
+    -   **二进制文件识别逻辑和无用文件扩展名过滤**
+    -   **大文件跳过机制**
+    -   批量文件处理
 
-4. **`types.go`** (25行)
-   - 关键数据结构定义
-   - 前后端数据交换格式
+4.  **`types.go`** (25行)
+    -   关键数据结构定义
+    -   前后端数据交换格式
 
 ### 配置文件优先级
 
-1. **`wails.json`** - 应用级配置
-2. **`frontend/package.json`** - 前端依赖
-3. **`go.mod`** - 后端依赖
-4. **构建配置文件** - 平台特定设置
+1.  **`wails.json`** - 应用级配置
+2.  **`frontend/package.json`** - 前端依赖
+3.  **`go.mod`** - 后端依赖
+4.  **构建配置文件** - 平台特定设置 (`build/`)
 
 ### 可以忽略的文件（展示给AI时）
 
-- `node_modules/` - 依赖包，过于庞大
-- `build/bin/` - 编译产物
-- `frontend/dist/` - 构建输出
-- `*.exe` - 可执行文件
-- 字体和图片文件 - 通常不影响代码逻辑
-- Lock文件 - 版本锁定信息
+-   `node_modules/` 和 `frontend/node_modules/` - 依赖包，过于庞大
+-   `build/bin/` 和 `frontend/dist/` - 编译产物和构建输出
+-   `*.exe` - 可执行文件
+-   字体和图片文件 (`.ico`, `.png`, `.woff`, etc.) - 通常不影响代码逻辑，且已在后端进行过滤
+-   Lock文件 (`package-lock.json` at root and frontend) - **尽管 `.gitignore` 忽略了前端的 `package-lock.json`，但其版本锁定信息对理解依赖环境仍有价值。**
 
 ## 📋 给AI的建议阅读顺序
 
-1. **项目理解阶段**
-   - README.md → PROJECT_OVERVIEW.md → 本文件
+1.  **项目理解阶段**
+    -   README.md → PROJECT_OVERVIEW.md → 本文件 (`FILE_STRUCTURE.md`)
 
-2. **架构理解阶段**
-   - main.go → app.go → types.go
+2.  **架构理解阶段**
+    -   main.go → app.go → types.go
 
-3. **核心逻辑理解阶段**
-   - filetree.go → filecontent.go
-   - frontend/src/App.tsx
+3.  **核心逻辑理解阶段**
+    -   filetree.go → filecontent.go
+    -   frontend/src/App.tsx
 
-4. **细节实现阶段**
-   - frontend/src/components/DirectoryTreeNode.tsx
-   - frontend/src/types/index.ts
+4.  **细节实现阶段**
+    -   frontend/src/components/DirectoryTreeNode.tsx
+    -   frontend/src/components/FilterPanel.tsx
+    -   frontend/src/components/Toast.tsx
+    -   frontend/src/hooks/useToast.ts
+    -   frontend/src/types/index.ts
 
-5. **配置理解阶段**
-   - wails.json → go.mod → frontend/package.json
-
-这样的阅读顺序能够帮助AI从宏观到微观逐步理解整个项目的设计和实现。 
+5.  **配置理解阶段**
+    -   wails.json → go.mod → frontend/package.json
