@@ -43,14 +43,13 @@ jobs:
         run: npm install
         working-directory: frontend
 
-      - name: Build frontend
-        run: npm run build
-        working-directory: frontend
-
       - name: Install Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
-
+      - name: Create frontend dist directory for embed
+        run: |
+          mkdir -p frontend/dist
+          echo '{}' > frontend/dist/placeholder.json
 
       - name: Run Go tests
         run: go test ./...
