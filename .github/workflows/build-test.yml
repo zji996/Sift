@@ -18,7 +18,7 @@ jobs:
         platform:
           - name: 'windows/amd64'
             os: 'windows-latest'
-          - name: 'darwin/amd64'
+          - name: 'darwin/arm64'
             os: 'macos-latest'
 
     runs-on: ${{ matrix.platform.os }}

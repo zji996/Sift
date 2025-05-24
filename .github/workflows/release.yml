@@ -28,11 +28,6 @@ jobs:
             build-name: 'windows-amd64'
             build-path: 'build/bin/Sift.exe'
             asset-name: 'Sift-windows-amd64.exe'
-          - name: 'darwin/amd64'
-            os: 'macos-latest'
-            build-name: 'darwin-amd64'
-            build-path: 'build/bin/Sift.app'
-            asset-name: 'Sift-darwin-amd64.app'
           - name: 'darwin/arm64'
             os: 'macos-latest'
             build-name: 'darwin-arm64'
@@ -99,12 +94,8 @@ jobs:
       - name: Package macOS app
         if: matrix.platform.os == 'macos-latest'
         run: |
-          # 创建 DMG 或直接压缩 .app
-          if [[ "${{ matrix.platform.name }}" == "darwin/amd64" ]]; then
-            ditto -c -k --sequesterRsrc --keepParent "build/bin/Sift.app" "${{ matrix.platform.asset-name }}.zip"
-          else
-            ditto -c -k --sequesterRsrc --keepParent "build/bin/Sift.app" "${{ matrix.platform.asset-name }}.zip"
-          fi
+          # 直接压缩 .app 包
+          ditto -c -k --sequesterRsrc --keepParent "build/bin/Sift.app" "${{ matrix.platform.asset-name }}.zip"
 
       # 上传构建产物
       - name: Upload Windows artifacts
@@ -152,9 +143,8 @@ jobs:
             ## Sift ${{ github.ref_name || github.event.inputs.version }}
             
             ### 下载说明
-            - **Windows**: 下载 `Sift-windows-amd64.exe` 
-            - **macOS (Intel)**: 下载 `Sift-darwin-amd64.app.zip`
-            - **macOS (Apple Silicon)**: 下载 `Sift-darwin-arm64.app.zip`
+            - **Windows (x86)**: 下载 `Sift-windows-amd64.exe` 
+            - **macOS (Apple Silicon/M1/M2)**: 下载 `Sift-darwin-arm64.app.zip`
             
             ### 更新内容
             - [列出这个版本的主要更新内容]
@@ -176,16 +166,6 @@ jobs:
           asset_path: artifacts/Sift-windows-amd64.exe/Sift-windows-amd64.exe
           asset_name: Sift-windows-amd64.exe
           asset_content_type: application/octet-stream
-
-      - name: Upload macOS Intel Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/Sift-darwin-amd64.app/Sift-darwin-amd64.app.zip
-          asset_name: Sift-darwin-amd64.app.zip
-          asset_content_type: application/zip
 
       - name: Upload macOS ARM Release Asset
         uses: actions/upload-release-asset@v1
