@@ -20,6 +20,8 @@ jobs:
             os: 'windows-latest'
           - name: 'darwin/arm64'
             os: 'macos-latest'
+          - name: 'darwin/amd64'
+            os: 'macos-13'
 
     runs-on: ${{ matrix.platform.os }}
     

@@ -33,6 +33,11 @@ jobs:
             build-name: 'darwin-arm64'
             build-path: 'build/bin/Sift.app'
             asset-name: 'Sift-darwin-arm64.app'
+          - name: 'darwin/amd64'
+            os: 'macos-13'
+            build-name: 'darwin-amd64'
+            build-path: 'build/bin/Sift.app'
+            asset-name: 'Sift-darwin-amd64.app'
 
     runs-on: ${{ matrix.platform.os }}
     
@@ -65,7 +70,7 @@ jobs:
 
       # macOS 特定设置
       - name: Import Code-Signing Certificates
-        if: matrix.platform.os == 'macos-latest'
+        if: startsWith(matrix.platform.os, 'macos')
         uses: Apple-Actions/import-codesign-certs@v3
         with:
           # 如果要代码签名，需要设置这些密钥
@@ -94,7 +99,7 @@ jobs:
 
       # macOS 打包
       - name: Package macOS app
-        if: matrix.platform.os == 'macos-latest'
+        if: startsWith(matrix.platform.os, 'macos')
         run: |
           # 直接压缩 .app 包
           ditto -c -k --sequesterRsrc --keepParent "build/bin/Sift.app" "${{ matrix.platform.asset-name }}.zip"
@@ -108,7 +113,7 @@ jobs:
           path: ${{ matrix.platform.asset-name }}
 
       - name: Upload macOS artifacts
-        if: matrix.platform.os == 'macos-latest'
+        if: startsWith(matrix.platform.os, 'macos')
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.platform.asset-name }}
@@ -147,6 +152,7 @@ jobs:
             ### 下载说明
             - **Windows (x86)**: 下载 `Sift-windows-amd64.exe` 
             - **macOS (Apple Silicon/M1/M2)**: 下载 `Sift-darwin-arm64.app.zip`
+            - **macOS (Intel x86)**: 下载 `Sift-darwin-amd64.app.zip`
             
             ### 更新内容
             - [列出这个版本的主要更新内容]
@@ -177,4 +183,14 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/Sift-darwin-arm64.app/Sift-darwin-arm64.app.zip
           asset_name: Sift-darwin-arm64.app.zip
-          asset_content_type: application/zip 
+          asset_content_type: application/zip
+
+      - name: Upload macOS x86 Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/Sift-darwin-amd64.app/Sift-darwin-amd64.app.zip
+          asset_name: Sift-darwin-amd64.app.zip
+          asset_content_type: application/zip
