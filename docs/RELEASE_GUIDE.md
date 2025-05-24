@@ -6,7 +6,6 @@ Sift 使用 GitHub Actions 进行自动化的跨平台构建和发布。支持�
 
 - **Windows** (amd64)
 - **macOS** (Intel/amd64 和 Apple Silicon/arm64)
-- **Linux** (amd64)
 
 ## 自动发布流程
 
@@ -67,7 +66,6 @@ git push origin v1.0.1
 | Windows | `Sift-windows-amd64.exe` | Windows 可执行文件 |
 | macOS (Intel) | `Sift-darwin-amd64.app.zip` | macOS Intel 应用包 |
 | macOS (ARM) | `Sift-darwin-arm64.app.zip` | macOS Apple Silicon 应用包 |
-| Linux | `Sift-linux-amd64.tar.gz` | Linux 压缩包 |
 
 ## 版本号规范
 
@@ -119,7 +117,6 @@ go install github.com/wailsapp/wails/v2/cmd/wails@latest
 wails build --clean
 
 # 跨平台构建测试（需要相应的交叉编译工具链）
-wails build --platform linux/amd64 --clean
 wails build --platform windows/amd64 --clean
 wails build --platform darwin/amd64 --clean
 wails build --platform darwin/arm64 --clean
