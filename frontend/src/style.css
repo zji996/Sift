@@ -67,8 +67,8 @@ body {
   transition: var(--transition-smooth);
 }
 
-/* 强制所有文本使用主题颜色 */
-* {
+/* 强制所有文本使用主题颜色，但排除特定组件 */
+*:not(.file-size-badge) {
   color: inherit;
 }
 
@@ -455,14 +455,23 @@ input[type="text"]::placeholder {
 /* 文件大小标签动画 */
 .file-size-badge {
   transition: var(--transition-smooth);
-  backdrop-filter: blur(10px);
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  /* 移除 backdrop-filter 以解决 macOS 显示问题 */
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  /* 使用更高优先级确保文本颜色在所有平台上都清晰可见 */
+  color: rgb(96, 165, 250) !important;
+  -webkit-text-fill-color: rgb(96, 165, 250) !important;
+  font-weight: 600;
+  /* 确保不继承父元素的颜色 */
+  isolation: isolate;
 }
 
 .file-size-badge:hover {
-  background: rgba(59, 130, 246, 0.2);
+  background: rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.4);
   transform: scale(1.05);
+  color: rgb(147, 187, 252) !important;
+  -webkit-text-fill-color: rgb(147, 187, 252) !important;
 }
 
 /* 图标动画 */
@@ -565,4 +574,17 @@ textarea:focus {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* 确保文件大小标签在所有情况下都显示正确的颜色 */
+.file-size-badge,
+.file-size-badge * {
+  color: rgb(96, 165, 250) !important;
+  -webkit-text-fill-color: rgb(96, 165, 250) !important;
+}
+
+.file-size-badge:hover,
+.file-size-badge:hover * {
+  color: rgb(147, 187, 252) !important;
+  -webkit-text-fill-color: rgb(147, 187, 252) !important;
 }

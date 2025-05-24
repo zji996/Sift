@@ -207,7 +207,7 @@ const DirectoryTreeNode: React.FC<DirectoryTreeNodeProps> = ({ node, selectedPat
         {/* 文件大小 */}
         {!node.isDir && node.size !== undefined && (
           <motion.span 
-            className="file-size-badge text-xs text-blue-300 font-mono ml-3 px-2 py-1 rounded-full flex-shrink-0"
+            className="file-size-badge text-xs font-mono ml-3 px-2 py-1 rounded-full flex-shrink-0"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.1 }}
