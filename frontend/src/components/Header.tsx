@@ -18,6 +18,8 @@ interface HeaderProps {
     totalPathsCount: number;
     error: string | null;
     hasOutput: boolean;
+    showParticles: boolean;
+    onToggleParticles: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -32,7 +34,9 @@ const Header: React.FC<HeaderProps> = ({
     selectedPathsSize,
     totalPathsCount,
     error,
-    hasOutput
+    hasOutput,
+    showParticles,
+    onToggleParticles
 }) => {
     const headerVariants = {
         initial: { y: -50, opacity: 0 },
@@ -62,6 +66,22 @@ const Header: React.FC<HeaderProps> = ({
                         transition={{ delay: 0.3 }}
                     >
                         <ThemeToggle isDark={isDarkMode} onToggle={onToggleTheme} />
+                    </motion.div>
+
+                    {/* 粒子效果开关按钮 */}
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.35 }}
+                    >
+                        <Button
+                            onClick={onToggleParticles}
+                            variant={showParticles ? "info" : "secondary"}
+                            size="sm"
+                            title={showParticles ? "关闭粒子效果" : "开启粒子效果"}
+                        >
+                            {showParticles ? "✨" : "💫"}
+                        </Button>
                     </motion.div>
                     
                     <Button

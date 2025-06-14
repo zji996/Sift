@@ -269,4 +269,5 @@ const DirectoryTreeNode: React.FC<DirectoryTreeNodeProps> = ({ node, selectedPat
   );
 };
 
-export default DirectoryTreeNode;
+// 使用 React.memo 优化性能，避免不必要的重新渲染
+export default React.memo(DirectoryTreeNode);

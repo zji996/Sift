@@ -70,7 +70,7 @@ const FileTreePanel: React.FC<FileTreePanelProps> = ({
             icon="🌳"
             headerActions={headerActions}
             variant="strong"
-            bodyClassName="p-4 overflow-y-auto custom-scrollbar"
+            bodyClassName="p-4 overflow-y-scroll custom-scrollbar"
         >
             <AnimatePresence mode="wait">
                 {isLoading && rootDir && (

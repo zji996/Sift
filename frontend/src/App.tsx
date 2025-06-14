@@ -11,6 +11,7 @@ import { FileSizePanel } from './components/FileSizePanel.js';
 import Header from './components/Header.js';
 import FileTreePanel from './components/FileTreePanel.js';
 import OutputPanel from './components/OutputPanel.js';
+import ContextPanel from './components/ContextPanel.js';
 import { useToast } from './hooks/useToast.js';
 
 
@@ -29,7 +30,15 @@ function App() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(true);
     const [gridCols, setGridCols] = useState<'grid-cols-3' | 'grid-cols-4'>('grid-cols-3');
-    
+    const [showParticles, setShowParticles] = useState(false); // 默认关闭粒子效果以提升性能
+
+    // AI上下文设置状态
+    const [aiSummary, setAiSummary] = useState('');
+    const [includeReadme, setIncludeReadme] = useState(true);
+    const [includeDependencies, setIncludeDependencies] = useState(true);
+    const [includeGitignore, setIncludeGitignore] = useState(false);
+    const [unifiedOutput, setUnifiedOutput] = useState('');
+
     const { toasts, removeToast, showSuccess, showError, showInfo } = useToast();
 
     // 主题切换
@@ -53,10 +62,15 @@ function App() {
         }
     }, [showFilterPanel]);
 
-    const toggleTheme = () => {
+    const toggleTheme = useCallback(() => {
         setIsDarkMode(!isDarkMode);
         showInfo(isDarkMode ? '🌞 已切换到浅色模式' : '🌙 已切换到深色模式');
-    };
+    }, [isDarkMode, showInfo]);
+
+    const toggleParticles = useCallback(() => {
+        setShowParticles(prev => !prev);
+        showInfo(showParticles ? "✨ 已关闭粒子效果" : "✨ 已开启粒子效果");
+    }, [showParticles, showInfo]);
 
     // 辅助函数：递归查找目录树中的条目
     const findEntryFlat = (entries: DirectoryEntry[], targetPath: string): DirectoryEntry | null => {
@@ -239,6 +253,44 @@ function App() {
         return mapString;
     };
 
+    // 查找上下文文件
+    const findContextFiles = useCallback((): string[] => {
+        if (!rootDir) return [];
+
+        const contextFiles: string[] = [];
+        const commonFiles = [
+            'README.md', 'readme.md', 'README.txt', 'readme.txt',
+            'package.json', 'go.mod', 'requirements.txt', 'Cargo.toml',
+            'composer.json', 'pom.xml', 'build.gradle', 'project.clj',
+            '.gitignore'
+        ];
+
+        const searchInEntries = (entries: DirectoryEntry[], currentPath: string = '') => {
+            entries.forEach(entry => {
+                const fullPath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+
+                if (!entry.isDir && commonFiles.includes(entry.name)) {
+                    // 根据设置决定是否包含
+                    if (entry.name.toLowerCase().includes('readme') && includeReadme) {
+                        contextFiles.push(entry.path);
+                    } else if (['package.json', 'go.mod', 'requirements.txt', 'Cargo.toml', 'composer.json', 'pom.xml', 'build.gradle', 'project.clj'].includes(entry.name) && includeDependencies) {
+                        contextFiles.push(entry.path);
+                    } else if (entry.name === '.gitignore' && includeGitignore) {
+                        contextFiles.push(entry.path);
+                    }
+                }
+
+                if (entry.isDir && entry.children && currentPath === '') {
+                    // 只在根目录搜索，避免深层递归
+                    searchInEntries(entry.children, fullPath);
+                }
+            });
+        };
+
+        searchInEntries(tree);
+        return contextFiles;
+    }, [rootDir, tree, includeReadme, includeDependencies, includeGitignore]);
+
     const handleGenerateOutput = async () => {
         if (!rootDir) {
             const errorMsg = "请先选择一个目录。";
@@ -256,57 +308,132 @@ function App() {
         setError(null);
 
         try {
-            // Generate File Map Output
+            // 开始构建统一的AI prompt
+            let promptContent = '<prompt>\n';
+
+            // 添加用户摘要
+            if (aiSummary.trim()) {
+                promptContent += `  <summary>\n${aiSummary.trim()}\n  </summary>\n\n`;
+            }
+
+            // 收集所有需要获取内容的文件
+            const allFilesToFetch: string[] = [];
+
+            // 添加上下文文件
+            const contextFiles = findContextFiles();
+            allFilesToFetch.push(...contextFiles);
+
+            // 添加用户选择的文件
+            selectedPaths.forEach(path => {
+                const entry = findEntryFlat(tree, path);
+                if (entry && !entry.isDir && !allFilesToFetch.includes(path)) {
+                    allFilesToFetch.push(path);
+                }
+            });
+
+            if (allFilesToFetch.length === 0) {
+                const errorMsg = "没有找到可读取的文件";
+                setUnifiedOutput("<prompt>\n  <error>没有选择文本文件或所有选择的项目都是目录。</error>\n</prompt>");
+                showInfo(errorMsg);
+                setIsGenerating(false);
+                return;
+            }
+
+            // 获取所有文件内容
+            const contents: FrontendFileContentResponse[] = await GetMultipleFileContents(rootDir, allFilesToFetch);
+
+            // 分类处理文件内容
+            const contextContents: FrontendFileContentResponse[] = [];
+            const selectedContents: FrontendFileContentResponse[] = [];
+
+            contents.forEach(item => {
+                if (contextFiles.includes(item.path)) {
+                    contextContents.push(item);
+                } else {
+                    selectedContents.push(item);
+                }
+            });
+
+            // 添加项目概览（README等）
+            contextContents.forEach(item => {
+                if (item.path.toLowerCase().includes('readme') && !item.error && !item.isBinary) {
+                    promptContent += `  <project_overview file="${item.path}">\n${item.content}\n  </project_overview>\n\n`;
+                }
+            });
+
+            // 添加依赖信息
+            const dependencyFiles = contextContents.filter(item =>
+                ['package.json', 'go.mod', 'requirements.txt', 'Cargo.toml', 'composer.json', 'pom.xml', 'build.gradle', 'project.clj'].includes(item.path.split(/[\/\\]/).pop() || '')
+            );
+
+            dependencyFiles.forEach(item => {
+                if (!item.error && !item.isBinary) {
+                    promptContent += `  <dependencies file="${item.path}">\n${item.content}\n  </dependencies>\n\n`;
+                }
+            });
+
+            // 添加.gitignore
+            const gitignoreFile = contextContents.find(item => item.path.endsWith('.gitignore'));
+            if (gitignoreFile && !gitignoreFile.error && !gitignoreFile.isBinary) {
+                promptContent += `  <gitignore file="${gitignoreFile.path}">\n${gitignoreFile.content}\n  </gitignore>\n\n`;
+            }
+
+            // 生成文件映射
             let treeString = "PROJECT_ROOT\n";
             if (tree.length > 0) {
                 const rootDirName = rootDir.split(/[\/\\]/).pop() || "PROJECT_ROOT";
                 treeString = `${rootDirName}/\n`;
                 treeString += generatePathMap(tree, '');
             }
-            setFileMapOutput(`<file_map>\n${treeString}</file_map>`);
+            promptContent += `  <file_map>\n${treeString}  </file_map>\n\n`;
 
-            // Collect files to fetch contents for (only non-directory and selected)
-            const filesToFetch: string[] = [];
-            selectedPaths.forEach(path => {
-                const entry = findEntryFlat(tree, path);
-                if (entry && !entry.isDir) {
-                    filesToFetch.push(path);
-                }
-            });
+            // 添加选择的文件内容
+            if (selectedContents.length > 0) {
+                promptContent += `  <file_contents>\n`;
+                let processedCount = 0;
 
-            if (filesToFetch.length === 0) {
-                setFileContentsOutput("<file_contents>\n没有选择文本文件或所有选择的项目都是目录。\n</file_contents>");
-                showInfo("没有找到可读取的文本文件");
-                setIsGenerating(false);
-                return;
+                selectedContents.forEach(item => {
+                    if (item.error) {
+                        promptContent += `    File: ${item.path}\n    Error: ${item.error}\n\n`;
+                    } else if (item.isBinary) {
+                        promptContent += `    File: ${item.path}\n    ${item.content}\n\n`;
+                    } else {
+                        promptContent += `    File: ${item.path}\n    \`\`\`\n${item.content}\n    \`\`\`\n\n`;
+                        processedCount++;
+                    }
+                });
+                promptContent += `  </file_contents>\n\n`;
+
+                showSuccess(`🎉 生成完成！处理了 ${processedCount} 个用户文件和 ${contextContents.length} 个上下文文件`);
+            } else {
+                showSuccess(`🎉 生成完成！包含了 ${contextContents.length} 个上下文文件`);
             }
 
-            // Fetch file contents
-            const contents: FrontendFileContentResponse[] = await GetMultipleFileContents(rootDir, filesToFetch);
-            let contentString = "<file_contents>\n";
-            let processedCount = 0;
-            let skippedCount = 0;
-            
-            contents.forEach(item => {
+            promptContent += '</prompt>';
+            setUnifiedOutput(promptContent);
+
+            // 保持旧格式的兼容性
+            setFileMapOutput(`<file_map>\n${treeString}</file_map>`);
+
+            let oldFormatContent = "<file_contents>\n";
+            selectedContents.forEach(item => {
                 if (item.error) {
-                    contentString += `File: ${item.path}\nError: ${item.error}\n\n`;
+                    oldFormatContent += `File: ${item.path}\nError: ${item.error}\n\n`;
                 } else if (item.isBinary) {
-                    contentString += `File: ${item.path}\n${item.content}\n\n`;
-                    skippedCount++;
+                    oldFormatContent += `File: ${item.path}\n${item.content}\n\n`;
                 } else {
-                    contentString += `File: ${item.path}\n\`\`\`\n${item.content}\n\`\`\`\n\n`;
-                    processedCount++;
+                    oldFormatContent += `File: ${item.path}\n\`\`\`\n${item.content}\n\`\`\`\n\n`;
                 }
             });
-            contentString += "</file_contents>";
-            setFileContentsOutput(contentString);
-            
-            showSuccess(`🎉 生成完成！处理了 ${processedCount} 个文件`);
+            oldFormatContent += "</file_contents>";
+            setFileContentsOutput(oldFormatContent);
+
         } catch (err: any) {
             const errorMsg = err.message || "获取文件内容失败";
             setError(errorMsg);
             showError(errorMsg);
             console.error(err);
+            setUnifiedOutput("<prompt>\n  <error>获取内容时出错。</error>\n</prompt>");
             setFileContentsOutput("<file_contents>\n获取内容时出错。\n</file_contents>");
         } finally {
             setIsGenerating(false);
@@ -324,8 +451,9 @@ function App() {
     };
 
     const handleCopyAll = () => {
-        const combinedText = `${fileMapOutput}\n\n${fileContentsOutput}`;
-        copyToClipboard(combinedText, "完整输出");
+        // 优先复制统一输出，如果没有则使用旧格式
+        const textToCopy = unifiedOutput || `${fileMapOutput}\n\n${fileContentsOutput}`;
+        copyToClipboard(textToCopy, unifiedOutput ? "AI Prompt" : "完整输出");
     };
 
     // 动画变体
@@ -365,8 +493,10 @@ function App() {
             initial="initial"
             animate="animate"
         >
-            {/* 粒子背景 */}
-            <ParticleBackground />
+            {/* 粒子背景 - 条件渲染 */}
+            <AnimatePresence>
+                {showParticles && <ParticleBackground />}
+            </AnimatePresence>
             
             {/* Toast Manager */}
             <ToastManager toasts={toasts} onRemoveToast={removeToast} />
@@ -384,7 +514,9 @@ function App() {
                 selectedPathsSize={selectedPaths.size}
                 totalPathsCount={totalPathsCount}
                 error={error}
-                hasOutput={Boolean(fileMapOutput || fileContentsOutput)}
+                hasOutput={Boolean(unifiedOutput || fileMapOutput || fileContentsOutput)}
+                showParticles={showParticles}
+                onToggleParticles={toggleParticles}
             />
 
             {/* 主内容区域 */}
@@ -473,16 +605,31 @@ function App() {
                             onToggleSelect={toggleSelectPath}
                         />
 
-                        {/* 右侧：输出区域 */}
-                        <motion.div 
-                            className="overflow-hidden"
+                        {/* 右侧：AI上下文设置和输出区域 */}
+                        <motion.div
+                            className="overflow-hidden flex flex-col space-y-6"
                             variants={cardVariants}
                         >
+                            {/* AI上下文设置面板 */}
+                            <ContextPanel
+                                summary={aiSummary}
+                                onSummaryChange={setAiSummary}
+                                includeReadme={includeReadme}
+                                onIncludeReadmeChange={setIncludeReadme}
+                                includeDependencies={includeDependencies}
+                                onIncludeDependenciesChange={setIncludeDependencies}
+                                includeGitignore={includeGitignore}
+                                onIncludeGitignoreChange={setIncludeGitignore}
+                            />
+
+                            {/* 输出区域 */}
                             <OutputPanel
                                 fileMapOutput={fileMapOutput}
                                 fileContentsOutput={fileContentsOutput}
+                                unifiedOutput={unifiedOutput}
                                 onCopyFileMap={() => copyToClipboard(fileMapOutput, "文件映射")}
                                 onCopyFileContents={() => copyToClipboard(fileContentsOutput, "文件内容")}
+                                onCopyUnified={() => copyToClipboard(unifiedOutput, "AI Prompt")}
                             />
                         </motion.div>
                     </div>

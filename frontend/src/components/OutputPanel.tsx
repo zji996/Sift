@@ -26,16 +26,53 @@ const OutputTextArea: React.FC<OutputTextAreaProps> = ({
 interface OutputPanelProps {
     fileMapOutput: string;
     fileContentsOutput: string;
+    unifiedOutput?: string;
     onCopyFileMap: () => void;
     onCopyFileContents: () => void;
+    onCopyUnified?: () => void;
 }
 
 const OutputPanel: React.FC<OutputPanelProps> = ({
     fileMapOutput,
     fileContentsOutput,
+    unifiedOutput,
     onCopyFileMap,
-    onCopyFileContents
+    onCopyFileContents,
+    onCopyUnified
 }) => {
+    // 如果有统一输出，优先显示统一输出
+    if (unifiedOutput) {
+        return (
+            <Card
+                title="AI Prompt"
+                icon="🤖"
+                variant="strong"
+                gradientFrom="purple-600/20"
+                gradientTo="pink-600/20"
+                headerActions={
+                    <Button
+                        onClick={onCopyUnified}
+                        disabled={!unifiedOutput}
+                        variant="primary"
+                        size="sm"
+                    >
+                        复制 AI Prompt
+                    </Button>
+                }
+                className="flex-1"
+                bodyClassName="flex flex-col"
+            >
+                <OutputTextArea
+                    value={unifiedOutput}
+                    placeholder="统一的 AI Prompt 将在这里显示..."
+                    onCopy={onCopyUnified || (() => {})}
+                    disabled={!unifiedOutput}
+                />
+            </Card>
+        );
+    }
+
+    // 否则显示传统的分离输出
     return (
         <div className="flex flex-col space-y-6 overflow-hidden">
             {/* 文件映射输出 */}

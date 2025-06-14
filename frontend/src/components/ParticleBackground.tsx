@@ -15,6 +15,7 @@ const ParticleBackground: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const animationRef = useRef<number>();
     const particlesRef = useRef<Particle[]>([]);
+    const isActiveRef = useRef<boolean>(true); // 跟踪窗口是否处于活动状态
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -30,6 +31,23 @@ const ParticleBackground: React.FC = () => {
 
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
+
+        // 添加窗口焦点事件监听器以优化性能
+        const handleVisibilityChange = () => {
+            isActiveRef.current = !document.hidden;
+        };
+
+        const handleFocus = () => {
+            isActiveRef.current = true;
+        };
+
+        const handleBlur = () => {
+            isActiveRef.current = false;
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('focus', handleFocus);
+        window.addEventListener('blur', handleBlur);
 
         // 初始化粒子
         const initParticles = () => {
@@ -60,9 +78,15 @@ const ParticleBackground: React.FC = () => {
 
         // 动画循环
         const animate = () => {
+            // 如果窗口不活跃，降低帧率或暂停动画
+            if (!isActiveRef.current) {
+                animationRef.current = requestAnimationFrame(animate);
+                return;
+            }
+
             const theme = getTheme();
             const isDark = theme === 'dark';
-            
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             // 更新和绘制粒子
@@ -133,6 +157,9 @@ const ParticleBackground: React.FC = () => {
 
         return () => {
             window.removeEventListener('resize', resizeCanvas);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('focus', handleFocus);
+            window.removeEventListener('blur', handleBlur);
             if (animationRef.current) {
                 cancelAnimationFrame(animationRef.current);
             }
